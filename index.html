@@ -1,78 +1,370 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Shader Playground</title>
-  <style>
-    body { margin:0; overflow:hidden; background:black; }
-    canvas { display:block; }
-    #codeArea {
-      position: absolute; top: 10px; left: 10px; width: 400px; height: 300px;
-      background: rgba(0,0,0,0.7); color: lime; font-family: monospace;
-      padding: 10px; border-radius: 8px; font-size: 12px;
-    }
-    #applyBtn {
-      position:absolute; top:320px; left:10px;
-      padding:5px 10px; background:lime; border:none; cursor:pointer;
-    }
-  </style>
-</head>
-<body>
-  <textarea id="codeArea">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Shader Cube + Texture Saver + OBJ Loader</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: black;
+      }
+      canvas {
+        display: block;
+      }
+      #shaderPanel {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 350px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 8px;
+        padding: 10px;
+        font-family: monospace;
+        color: lime;
+        z-index: 10;
+      }
+      #codeArea {
+        width: 100%;
+        height: 250px;
+        background: black;
+        color: lime;
+        border: 1px solid lime;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      #applyBtn {
+        margin-top: 6px;
+        width: 100%;
+        padding: 5px;
+        background: orange;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      #savePanel {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        z-index: 10;
+      }
+      #savePanel button {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      #pngBtn {
+        background: lime;
+      }
+      #gifBtn {
+        background: cyan;
+      }
+      #dropZone {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 300px;
+        height: 60px;
+        border: 2px dashed lime;
+        border-radius: 8px;
+        color: lime;
+        font-family: monospace;
+        font-size: 14px;
+        text-align: center;
+        line-height: 60px;
+        cursor: pointer;
+        user-select: none;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+      }
+      #dropZone.dragover {
+        background: rgba(0, 255, 0, 0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="shaderPanel">
+      <textarea id="codeArea">
+// ShaderToy-Compatible Shader
+precision highp float;
+uniform float time;
+uniform vec2 iResolution;
 
-  </textarea>
-  <button id="applyBtn">Apply Shader</button>
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+  vec2 uv = fragCoord / iResolution.xy;
+  vec3 col = 0.5 + 0.5 * cos(time + uv.xyx + vec3(0, 2, 4));
+  fragColor = vec4(col, 1.0);
+}
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
-  <script>
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    let renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+void main() {
+  mainImage(gl_FragColor, gl_FragCoord.xy);
+}
+      </textarea>
+      <button id="applyBtn">Apply Shader</button>
+    </div>
 
-    // Geometry
-    let geometry = new THREE.BoxGeometry(2,2,2);
+    <div id="savePanel">
+      <button id="pngBtn">📸 Save PNG</button>
+      <button id="gifBtn">🎥 Save GIF</button>
+    </div>
 
-    // Default shader
-    let uniforms = { time: { value: 0 } };
-    let material = new THREE.ShaderMaterial({
-      uniforms: uniforms,
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: document.getElementById("codeArea").value
-    });
+    <div id="dropZone">Drop OBJ here or click to upload</div>
 
-    let cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-
-    camera.position.z = 5;
-
-    function animate(){
-      requestAnimationFrame(animate);
-      uniforms.time.value += 0.05;
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    // Button to recompile shader
-    document.getElementById("applyBtn").onclick = () => {
-      material.fragmentShader = document.getElementById("codeArea").value;
-      material.needsUpdate = true;
-    };
-
-    window.addEventListener("resize", ()=>{
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js.optimized/dist/gif.js"></script>
+    <script>
+      // Basic three.js setup
+      let scene = new THREE.Scene();
+      let camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      let renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  </script>
-</body>
+      document.body.appendChild(renderer.domElement);
+
+      let uniforms = {
+        time: { value: 0 },
+        iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+      };
+
+      let material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: document.getElementById("codeArea").value,
+      });
+
+      // Default cube
+      let cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), material);
+      scene.add(cube);
+      camera.position.z = 5;
+
+      // OBJ model container
+      let loadedModel = null;
+
+      // Animate loop
+      function animate() {
+        requestAnimationFrame(animate);
+        uniforms.time.value += 0.05;
+        uniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
+
+        if (loadedModel) {
+          loadedModel.rotation.x += 0.01;
+          loadedModel.rotation.y += 0.01;
+        } else {
+          cube.rotation.x += 0.01;
+          cube.rotation.y += 0.01;
+        }
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Apply shader button
+      document.getElementById("applyBtn").onclick = () => {
+        const fragShader = document.getElementById("codeArea").value;
+        material.fragmentShader = fragShader;
+        material.needsUpdate = true;
+        exportMat.fragmentShader = fragShader;
+        exportMat.needsUpdate = true;
+
+        // Also update any loaded model's materials
+        if (loadedModel) {
+          loadedModel.traverse((child) => {
+            if (child.isMesh && child.material) {
+              child.material.fragmentShader = fragShader;
+              child.material.needsUpdate = true;
+            }
+          });
+        }
+      };
+
+      // EXPORT SETUP
+      let exportScene = new THREE.Scene();
+      let exportCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      let exportRenderer = new THREE.WebGLRenderer({
+        antialias: true,
+        preserveDrawingBuffer: true,
+      });
+      exportRenderer.setSize(512, 512);
+
+      let exportMat = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position.xy, 0.0, 1.0);
+          }
+        `,
+        fragmentShader: document.getElementById("codeArea").value,
+      });
+      let quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), exportMat);
+      exportScene.add(quad);
+
+      // Save PNG button
+      document.getElementById("pngBtn").onclick = () => {
+        exportRenderer.render(exportScene, exportCam);
+        let dataURL = exportRenderer.domElement.toDataURL("image/png");
+        let link = document.createElement("a");
+        link.download = "shader_texture.png";
+        link.href = dataURL;
+        link.click();
+      };
+
+      // Save GIF button
+      document.getElementById("gifBtn").onclick = () => {
+        let gif = new GIF({ workers: 2, quality: 10, width: 512, height: 512 });
+        let frames = 30,
+          frame = 0;
+
+        function captureFrame() {
+          uniforms.time.value += 0.1;
+          exportRenderer.render(exportScene, exportCam);
+          gif.addFrame(exportRenderer.domElement, { delay: 100 });
+
+          frame++;
+          if (frame < frames) requestAnimationFrame(captureFrame);
+          else {
+            gif.on("finished", (blob) => {
+              let link = document.createElement("a");
+              link.href = URL.createObjectURL(blob);
+              link.download = "shader_texture.gif";
+              link.click();
+            });
+            gif.render();
+          }
+        }
+        captureFrame();
+      };
+
+      // Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        uniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
+      });
+
+      // OBJ Loading code with centering + scaling
+      const dropZone = document.getElementById("dropZone");
+
+      // Handle drag over
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragover");
+      });
+
+      // Handle drag leave
+      dropZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+      });
+
+      // Handle drop
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      // Click to open file dialog
+      dropZone.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".obj";
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) handleFile(file);
+        };
+        input.click();
+      });
+
+      function handleFile(file) {
+        if (!file.name.toLowerCase().endsWith(".obj")) {
+          alert("Please select a valid .obj file.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const contents = event.target.result;
+          loadOBJ(contents);
+          dropZone.textContent = "Loaded: " + file.name;
+        };
+        reader.readAsText(file);
+      }
+
+      function loadOBJ(objText) {
+        // Remove previous model if exists
+        if (loadedModel) {
+          scene.remove(loadedModel);
+          loadedModel.traverse((child) => {
+            if (child.isMesh) {
+              child.geometry.dispose();
+              child.material.dispose();
+            }
+          });
+          loadedModel = null;
+        }
+
+        let loader = new THREE.OBJLoader();
+        let object = loader.parse(objText);
+
+        // Center and scale the model
+        const box = new THREE.Box3().setFromObject(object);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        // Center model
+        object.position.x += (object.position.x - center.x);
+        object.position.y += (object.position.y - center.y);
+        object.position.z += (object.position.z - center.z);
+
+        // Scale model so largest dimension is 2 units
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+          const scaleFactor = 2 / maxDim;
+          object.scale.setScalar(scaleFactor);
+        }
+
+        // Assign shader material to each mesh
+        object.traverse((child) => {
+          if (child.isMesh) {
+            // Clone material so uniforms are unique per mesh
+            let newMat = material.clone();
+            newMat.uniforms = THREE.UniformsUtils.clone(uniforms);
+            child.material = newMat;
+          }
+        });
+
+        loadedModel = object;
+        scene.add(loadedModel);
+
+        // Remove cube from scene
+        scene.remove(cube);
+
+        // Reset camera position if needed
+        camera.position.z = 5;
+      }
+    </script>
+  </body>
 </html>
